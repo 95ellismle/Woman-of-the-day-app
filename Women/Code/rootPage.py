@@ -110,14 +110,19 @@ def get_all_links(soup, wiki_url, good_filepath="", bad_filepath=''):
     return all_links
 
 
-def load_save_all_pages(folderpath, all_links, do_soup=True):
+def load_save_all_pages(folderpath, all_links, wiki_url, do_soup=True):
     """
     Will save all the HTML pages in the list all_links in the folder given
     """
-    stripper = "https://en.wikipedia.org/wiki/"
+    remove_me = ['https://en.wikipedia.org', wiki_url, 'wiki', 'https://']
     all_soups = {}
     for link in all_links:
-        name = link.replace(stripper, "") + ".html"
+        name = link
+        for remover in remove_me:
+            name = name.replace(remover, "")
+        name = name.strip('/')
+        name = name + ".html"
+        print(name)
         link_filepath = os.path.join(folderpath, name)
         
         soup = myHttp.get_page_soup(link, link_filepath, do_pause=True,
