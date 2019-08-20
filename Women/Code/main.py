@@ -65,13 +65,16 @@ def person_is_male_or_female(filename):
 
 
 if init:
-def tidy_links(link): 
-    if link.count("https://") > 1: 
-        return False 
-    if 'en.wikipedia' not in link: 
-        return False 
-    else: 
-        return link 
+
+
+    def tidy_links(link):   
+        if link.count("https://") > 1:   
+            return False   
+        if 'en.wikipedia' not in link:   
+            return False   
+        else:   
+            return link.replace("//", "/").replace("https:/", "https://") 
+
 
     def tidy_name(name):
         """
@@ -81,6 +84,7 @@ def tidy_links(link):
         name = re.sub("\(.*\)", "", name)
         name = name.replace("_", " ")
         return name
+
 
     root_soup = myHttp.get_page_soup(root_url, "HTML/root.html")
     
@@ -93,8 +97,6 @@ def tidy_links(link):
                                                   all_root_links,
                                                   wiki_url)
     
-
-
     print("Getting links for women's pages.")        
     df = womLink.get_all_women_links(all_list_soups, wiki_url)
 
@@ -144,7 +146,6 @@ def tidy_links(link):
     df['names'] = df['names'].apply(tidy_name)
     df['links'] = df['links'].apply(tidy_links) 
     df = df[df['links'] != False] 
-    
 
     bad_names = []
     for name in df['names']:
@@ -167,7 +168,35 @@ def tidy_links(link):
             all_links.append(fN.replace(".html", "")) 
         
     for bad_name in all_links:  
-        df = df[~df['links'].str.contains(bad_name)] 
+        df = df[~df['links'].str.contains(bad_name)]
+
+    # Attach the filenames to the df and more tidying of data
+    df['links'] = df['links'].apply(tidy_links) 
+    df = df[df['links'] != False] 
+    df = df.drop_duplicates('links') 
+    df['filename'] = " " 
+    df.index = range(len(df)) 
+     
+    all_links = [i.lower() for i in df['links']] 
+     
+    bad_files = [] 
+    bad_df_inds = [] 
+    all_files = os.listdir('./HTML/Women/') 
+    len_files = len(all_files) 
+    for fNum, fName in enumerate(all_files): 
+        name = '/' + fName.replace(".html", "").lower() 
+        print("%i/%i" % (fNum, len_files), end="\r") 
+        for ilink, link in enumerate(all_links): 
+            check = link[link.rfind('/'):] 
+            if name == check: 
+                df.loc[ilink]['filename'] = "./HTML/Women/%s" % fName 
+                break 
+        else: 
+    #        print("Bad: ", name) 
+            bad_files.append(fName) 
+            bad_df_inds.append(ilink) 
+     
+    df = df[df['filename'] != ' ']
     
     df.to_csv("./metadata/Women_and_Links.csv", index=False)
 
