@@ -12,14 +12,23 @@ import os
 import myHttp
 import rootPage
 import getWomenLinks as womLink
+import parse_women as womParse
+import Inspirational_Women
 
-init = True
+init = False
 
 
 wiki_url = "https://en.wikipedia.org"
 root_url = "%s/wiki/Lists_of_women" % wiki_url
 
 
+def open_list_file(filename): 
+    """ 
+    Will open a .list file (normally found in metadata folder). 
+    """ 
+    with open(filename, "r") as f: 
+        ltxt = [i for i in f.read().split("\n") if i] 
+    return ltxt 
 
 
 
@@ -82,7 +91,7 @@ if init:
         tidy it.
         """
         name = re.sub("\(.*\)", "", name)
-        name = name.replace("_", " ")
+        name = name.strip().replace("_", " ")
         return name
 
 
@@ -99,7 +108,8 @@ if init:
     
     print("Getting links for women's pages.")        
     df = womLink.get_all_women_links(all_list_soups, wiki_url)
-
+    
+    # Now add women from the following categories
     extra_list = ['https://en.wikipedia.org/wiki/Category:American_female_pop_singers',
                   'https://en.wikipedia.org/wiki/Category:Australian_female_pop_singers',
                   'https://en.wikipedia.org/wiki/Category:Belgian_female_pop_singers',
@@ -137,16 +147,8 @@ if init:
         df_extra['links'].append(link)
         df_extra['category'].append(cat)
     df_extra = pd.DataFrame(df_extra)
-    
-    df_manual = pd.read_csv("./metadata/Extra_Women.csv")
     df = df.append(df_extra)
-    df = df.append(df_manual)
-    df.index = range(len(df))
-    df.drop_duplicates('links')
-    df['names'] = df['names'].apply(tidy_name)
-    df['links'] = df['links'].apply(tidy_links) 
-    df = df[df['links'] != False] 
-
+    
     bad_names = []
     for name in df['names']:
         if any(j in name for j in (':', ';', '\'s')):
@@ -157,13 +159,25 @@ if init:
             bad_words = [word for word in name.split(' ') if word in ('and', 'for')]
             if len(bad_words):
                 bad_names.append(name)
+
+    # Add those names and links in the manually compiled Extra_Women file
+    df_manual = pd.read_csv("./metadata/Extra_Women.csv")
+    rootPage.load_save_all_pages("./HTML/Women/", list(df_manual['links']),
+                                 wiki_url, do_soup=False)
+    df = df.append(df_manual)
+    df.index = range(len(df))
+    df.drop_duplicates('links')
+    df['names'] = df['names'].apply(tidy_name)
+    df['links'] = df['links'].apply(tidy_links) 
+    df = df[df['links'] != False] 
+    
     
     for name in bad_names:
         df = df[df['names'] != name]
     
     all_links = [] 
     for fN in os.listdir('./HTML/Women'): 
-        gender = person_is_male_or_female(fN) 
+        gender = person_is_male_or_female('./HTML/Women/' + fN) 
         if gender == 'male': 
             all_links.append(fN.replace(".html", "")) 
         
@@ -179,8 +193,8 @@ if init:
      
     all_links = [i.lower() for i in df['links']] 
      
-    bad_files = [] 
-    bad_df_inds = [] 
+    bad_files = []
+    bad_df_inds = []
     all_files = os.listdir('./HTML/Women/') 
     len_files = len(all_files) 
     for fNum, fName in enumerate(all_files): 
@@ -189,7 +203,7 @@ if init:
         for ilink, link in enumerate(all_links): 
             check = link[link.rfind('/'):] 
             if name == check: 
-                df.loc[ilink]['filename'] = "./HTML/Women/%s" % fName 
+                df.loc[ilink, 'filename'] = "./HTML/Women/%s" % fName 
                 break 
         else: 
     #        print("Bad: ", name) 
@@ -197,7 +211,38 @@ if init:
             bad_df_inds.append(ilink) 
      
     df = df[df['filename'] != ' ']
+
+    # Remove any entries with any links with the bad brackets
+    bad_bracks = open_list_file("./metadata/Bad_Link_Brackets.list")
+    links = [] 
+    for brack in bad_bracks: 
+        for link in df['links'][df['links'].str.contains(brack)]: 
+            links.append(link) 
     
+            links = list(set(links)) 
+            for link in links: 
+                df = df[df['links'] != link] 
+
+    # Remove any entries with any sections that have bad keywords
+    bad_sections = open_list_file("./metadata/Bad_Sections.list")
+    bad_sections = list(set([i.lower() for i in bad_sections]))
+    def set_bad_sections_to_False(section): 
+        """ 
+        To be applied to df['all_sections'] column and will set any entries 
+        with bad sections to False 
+        """ 
+        if type(section) == float: return True 
+        section = section.lower()
+        for sect in bad_sections: 
+            if sect in section: 
+                return False 
+            else: 
+                return True 
+
+    mask = df['all_sections'].apply(set_bad_sections_to_False)
+    df = df[mask]
+    
+
     df.to_csv("./metadata/Women_and_Links.csv", index=False)
 
 
@@ -206,10 +251,6 @@ all_links = rootPage.load_save_all_pages("./HTML/Women/", list(df['links']),
                                          wiki_url, do_soup=False)
 
 
+new_df = womParse.parse_all_women(df, wiki_url)
+new_df.to_csv("./metadata/Women_and_Links.csv", index=False)
 
-# Need to find when to use table, list and text       X
-# Need to download all the pages                              
-# Need to create a way to determine whether the page is big enough/has enough info
-# Need to find a way to determine whether the page is definitely about a woman (uses lots of she rather than he?)
-# Need to create a way to strip useful data
-# Need to whack it into a database

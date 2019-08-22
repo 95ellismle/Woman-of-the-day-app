@@ -26,7 +26,7 @@ def remove_section_between_h2(soup, bad_sections=['reference', 'bibliograph',
     """
     for header in soup.findAll("h2"):
         txt = re.sub("\[.*\]", "", header.text)
-        for section in ['see also']:
+        for section in bad_sections:
             if section in txt.lower():
                 for elt in header.nextSiblingGenerator():
                     if elt.name == "h2":
