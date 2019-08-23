@@ -225,7 +225,7 @@ def parse_info_box(soup):
         td = tr.find('td')
         if td is None:
             continue
-        tags = ['span', 'li']
+        tags = ['span', 'li', 'style']
         for tag in tags:
             for elm in td.find_all(tag):
                 elm.replace_with(" " + elm.text + " ")
@@ -247,6 +247,27 @@ def parse_info_box(soup):
     return info_box_parsed
 
 
+def find_toc_parent_div(curr_div, parent_div):
+    """
+    Will find the div that is highest in the hierachy that still has toc in its
+    class.
+    """
+    attrs = parent_div.attrs
+    if attrs is None: return False
+    att_class = attrs.get("class")
+    if att_class is None: return False
+
+    parent_is_toc = False
+    for i in att_class:
+        if 'toc' in i:
+            parent_is_toc = True
+
+    if parent_is_toc:
+        return find_toc_parent_div(curr_div.parent, parent_div.parent)
+    else:
+        return curr_div
+
+
 def get_summary(soup):
     """
     Will get the summary from the wiki page.
@@ -254,11 +275,18 @@ def get_summary(soup):
     title = soup.title.text
     contents_div = soup.find("div", {'id': 'toc'})
     if contents_div is None:
-        contents_div = soup.find("h2")
+        contents_div = soup.find("h2")    
+    if contents_div is None: return False
+    contents_div = find_toc_parent_div(contents_div, contents_div.parent)
     if contents_div is False: return False
+    
     summary = ""
-    for elm in list(contents_div.previous_siblings)[-1:0:-1]:
+    bad_tags = ['style']
+    for elm in list(contents_div.previous_siblings)[-1::-1]:
         if elm.name == 'p':
+            for tag in bad_tags:
+                for bad_tag in elm.find_all(tag):
+                    bad_tag.replace_with("")
             summary += elm.text + "\n"
     if summary:
         return summary
@@ -277,13 +305,19 @@ def get_all_sections(soup):
     for header in soup.findAll("h2"):
         title = re.sub("\[.*\]", "", header.text)
         text = ""
+        bad_tags = ['style']
         for sib in header.next_siblings:
             if sib.name == 'h2':
                 break
-            elif sib.name == 'h3':
+            bad_tags = ['style']
+
+            if sib.name == 'h3':
                 sub_title = re.sub("\[.*\]", "", sib.text)
                 text += sub_title + " (subTitle)\n"
             elif sib.name == 'p':
+                for tag in bad_tags:
+                    for bad_tag in sib.find_all(tag):
+                        bad_tag.replace_with("")
                 text += sib.text + "\n"
         sections[title] = text
         
@@ -361,14 +395,12 @@ def parse_all_women(df, wiki_url):
     df['impact_factor'] = 0
     
     for i in range(len(df)):
-        df_entry = df.iloc[i]
-        link = df_entry['links']
-        name = df_entry['names']        
+        link = df.loc[i, 'links']
+        name = df.loc[i, 'names']        
         
         if link not in parsed_women:
-            all_info = parse_woman(df_entry, wiki_url)
+            all_info = parse_woman(df.loc[i], wiki_url)
                 
-            name = df_entry['names']
             df.loc[i, 'impact_factor'] = all_info['impact_factor']
             save_all_info(all_info, name)
             parsed_women.append(link)
@@ -423,7 +455,12 @@ def add_all_sections(df):
             with open(filepath, 'r') as f:
                 D = json.load(f)
                 if D.get("all_sections") is not False:
-                    return ' | '.join(list(D['all_sections'].keys()))
+                    sections = [i.lower().strip() for i in list(D['all_sections'].keys())]
+                    bad_sections = ['contents', 'navigation menu']
+                    for sect in bad_sections:
+                        if sect in sections: sections.remove(sect)
+                    sections = ' | '.join(sections).lower()
+                    return sections
         return False
     
     df['all_sections'] = df['profile_path']
@@ -466,5 +503,5 @@ def add_has_info_box(df):
     df['has_info_box'] = df['has_info_box'].apply(has_info_box)
     return df
 
-#new_df = parse_all_women(df, wiki_url)
-#new_df.to_csv("./metadata/Women_and_Links.csv", index=False)
+new_df = parse_all_women(df, wiki_url)
+new_df.to_csv("./metadata/Women_and_Links.csv", index=False)
