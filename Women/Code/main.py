@@ -8,6 +8,7 @@ Created on Mon Jul 29 19:37:49 2019
 import pandas as pd
 import re
 import os
+import json
 
 import myHttp
 import rootPage
@@ -15,7 +16,7 @@ import getWomenLinks as womLink
 import parse_women as womParse
 import Inspirational_Women
 
-init = False
+init = True
 
 
 wiki_url = "https://en.wikipedia.org"
@@ -170,10 +171,16 @@ if init:
     df['names'] = df['names'].apply(tidy_name)
     df['links'] = df['links'].apply(tidy_links) 
     df = df[df['links'] != False] 
+    if len(df[df['names'] == 'Rosa Parks']) == 0:
+        print("No Rosa Parks -177!")
+        raise SystemExit("BREAK")
     
     
     for name in bad_names:
         df = df[df['names'] != name]
+    if len(df[df['names'] == 'Rosa Parks']) == 0:
+        print("No Rosa Parks -183!")
+        raise SystemExit("BREAK")
     
     all_links = [] 
     for fN in os.listdir('./HTML/Women'): 
@@ -183,6 +190,9 @@ if init:
         
     for bad_name in all_links:  
         df = df[~df['links'].str.contains(bad_name)]
+    if len(df[df['names'] == 'Rosa Parks']) == 0:
+        print("No Rosa Parks -196!")
+        raise SystemExit("BREAK")
 
     # Attach the filenames to the df and more tidying of data
     df['links'] = df['links'].apply(tidy_links) 
@@ -190,6 +200,9 @@ if init:
     df = df.drop_duplicates('links') 
     df['filename'] = " " 
     df.index = range(len(df)) 
+    if len(df[df['names'] == 'Rosa Parks']) == 0:
+        print("No Rosa Parks -207!")
+        raise SystemExit("BREAK")
      
     all_links = [i.lower() for i in df['links']] 
      
@@ -208,9 +221,12 @@ if init:
         else: 
     #        print("Bad: ", name) 
             bad_files.append(fName) 
-            bad_df_inds.append(ilink) 
+            bad_df_inds.append(ilink)
      
     df = df[df['filename'] != ' ']
+    if len(df[df['names'] == 'Rosa Parks']) == 0:
+        print("No Rosa Parks -226!")
+        raise SystemExit("BREAK")
 
     # Remove any entries with any links with the bad brackets
     bad_bracks = open_list_file("./metadata/Bad_Link_Brackets.list")
@@ -222,26 +238,10 @@ if init:
             links = list(set(links)) 
             for link in links: 
                 df = df[df['links'] != link] 
+    if len(df[df['names'] == 'Rosa Parks']) == 0:
+        print("No Rosa Parks -241!")
+        raise SystemExit("BREAK")
 
-    # Remove any entries with any sections that have bad keywords
-    bad_sections = open_list_file("./metadata/Bad_Sections.list")
-    bad_sections = list(set([i.lower() for i in bad_sections]))
-    def set_bad_sections_to_False(section): 
-        """ 
-        To be applied to df['all_sections'] column and will set any entries 
-        with bad sections to False 
-        """ 
-        if type(section) == float: return True 
-        section = section.lower()
-        for sect in bad_sections: 
-            if sect in section: 
-                return False 
-            else: 
-                return True 
-
-    mask = df['all_sections'].apply(set_bad_sections_to_False)
-    df = df[mask]
-    
 
     df.to_csv("./metadata/Women_and_Links.csv", index=False)
 
@@ -253,4 +253,75 @@ all_links = rootPage.load_save_all_pages("./HTML/Women/", list(df['links']),
 
 new_df = womParse.parse_all_women(df, wiki_url)
 new_df.to_csv("./metadata/Women_and_Links.csv", index=False)
+
+df = pd.read_csv("./metadata/Women_and_Links.csv")
+
+if len(df[df['names'] == 'Rosa Parks']) == 0:
+    print("No Rosa Parks -257!")
+    raise SystemExit("BREAK")
+
+
+# Remove any entries with any sections that have bad keywords
+bad_sections = open_list_file("./metadata/Bad_Sections.list")
+bad_sections = list(set([i.lower() for i in bad_sections]))
+def set_bad_sections_to_False(section): 
+    """ 
+    To be applied to df['all_sections'] column and will set any entries 
+    with bad sections to False 
+    """ 
+    if type(section) == float: return True 
+    section = section.lower()
+    for sect in bad_sections: 
+        if sect in section: 
+            return False 
+        else: 
+            return True 
+
+mask = df['all_sections'].apply(set_bad_sections_to_False)
+df = df[mask]
+if len(df[df['names'] == 'Rosa Parks']) == 0:
+    print("No Rosa Parks -263!")
+    raise SystemExit("BREAK")
+
+# Remove any entries with dodgy things in their info box 
+all_info_sects = []  
+all_folds = []  
+bad_folds = [] 
+bad_links = [] 
+bad_keys = open_list_file('./metadata/Bad_info_box_keys.list') 
+ignore_keys = open_list_file('./metadata/Good_info_box_keys.list') 
+for i in range(len(df)): 
+    fold = df.iloc[i]['profile_path'] 
+    link = df.iloc[i]['links']  
+    filepath = "%s/all_info.json" % fold  
+    if os.path.isfile(filepath):  
+        with open(filepath, "r") as f:  
+            D = json.load(f)  
+        if D['info_box'] is False: continue   
+
+        keys = [i.lower().strip().strip(':') for i in D['info_box'].keys()]  
+        if any([j in keys for j in ignore_keys]): continue   
+
+        if any([j in keys for j in bad_keys]): 
+            bad_folds.append(fold) 
+            bad_links.append(link) 
+            continue   
+      
+        name = [i.lower() for i in fold[fold.rfind('/')+1:].split('_')]  
+        if 'miss' in name:    
+            bad_folds.append(fold)   
+            bad_links.append(link) 
+            continue   
+      
+        for key in D['info_box']:  
+            all_info_sects.append(key)  
+            all_folds.append(fold)
+
+for link in bad_links: 
+    df = df[df['links'] != link]
+if len(df[df['names'] == 'Rosa Parks']) == 0:
+    print("No Rosa Parks -303!")
+    raise SystemExit("BREAK")
+
+df.to_csv("./metadata/Women_and_Links.csv", index=False)
 

@@ -1,4 +1,3 @@
-import myHttp
 import bs4
 import pandas as pd
 import json
@@ -360,9 +359,6 @@ def parse_all_women(df, wiki_url):
     parsed_filename = "./metadata/Parsed_Women.npy"
     parsed_women = list(load_numpy(parsed_filename))
     df['impact_factor'] = 0
-    df['has_summary'] = False
-    df['has_info_box'] = False
-    df['sections_on_page'] = ''
     
     for i in range(len(df)):
         df_entry = df.iloc[i]
@@ -371,12 +367,6 @@ def parse_all_women(df, wiki_url):
         
         if link not in parsed_women:
             all_info = parse_woman(df_entry, wiki_url)
-            if all_info['summary'] is not False:
-                df.loc[i, 'has_summary'] = True
-            if all_info['info_box'] is not False:
-                df.loc[i, 'has_info_box'] = True
-            if all_info['all_sections'] is not False:
-                df.loc[i, 'all_sections'] = ' | '.join(list(all_info['all_sections'].keys()))
                 
             name = df_entry['names']
             df.loc[i, 'impact_factor'] = all_info['impact_factor']
@@ -387,8 +377,14 @@ def parse_all_women(df, wiki_url):
         print("\rDone %s (%i/%i)                                                 " % (name, i, len(df)), end="\r")
         
     np.save(parsed_filename, parsed_women)
+    
     df = add_profile_path(df)
     df = add_has_pic(df)
+    df = add_all_sections(df)
+    df = add_has_summary(df)
+    df = add_has_info_box(df)
+    df = add_has_info_box(df)
+
     return df
 
 
@@ -417,6 +413,58 @@ def add_profile_path(df):
     return df
 
 
+def add_all_sections(df):
+    """
+    Will add the all_sections column to the df
+    """
+    def has_all_sections(profile_path):
+        filepath = profile_path + '/all_info.json'
+        if os.path.isfile(filepath):
+            with open(filepath, 'r') as f:
+                D = json.load(f)
+                if D.get("all_sections") is not False:
+                    return ' | '.join(list(D['all_sections'].keys()))
+        return False
+    
+    df['all_sections'] = df['profile_path']
+    df['all_sections'] = df['all_sections'].apply(has_all_sections)
+    return df
+
+
+def add_has_summary(df):
+    """
+    Will add the all_sections column to the df
+    """
+    def has_summary(profile_path):
+        filepath = profile_path + '/all_info.json'
+        if os.path.isfile(filepath):
+            with open(filepath, 'r') as f:
+                D = json.load(f)
+                if D.get("summary") is not False:
+                    return True
+        return False
+    
+    df['has_summary'] = df['profile_path']
+    df['has_summary'] = df['has_summary'].apply(has_summary)
+    return df
+
+
+def add_has_info_box(df):
+    """
+    Will add the all_sections column to the df
+    """
+    def has_info_box(profile_path):
+        filepath = profile_path + '/all_info.json'
+        if os.path.isfile(filepath):
+            with open(filepath, 'r') as f:
+                D = json.load(f)
+                if D.get("info_box") is not False:
+                    return True
+        return False
+    
+    df['has_info_box'] = df['profile_path']
+    df['has_info_box'] = df['has_info_box'].apply(has_info_box)
+    return df
 
 #new_df = parse_all_women(df, wiki_url)
 #new_df.to_csv("./metadata/Women_and_Links.csv", index=False)
