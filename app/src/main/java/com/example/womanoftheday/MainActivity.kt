@@ -1,8 +1,6 @@
 package com.example.womanoftheday
 
 import android.os.Bundle
-//import com.google.android.material.floatingactionbutton.FloatingActionButton
-import com.google.android.material.snackbar.Snackbar
 import androidx.core.view.GravityCompat
 import androidx.appcompat.app.ActionBarDrawerToggle
 import android.view.MenuItem
@@ -11,6 +9,13 @@ import com.google.android.material.navigation.NavigationView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
 import android.view.Menu
+import java.text.SimpleDateFormat
+import kotlin.random.Random
+import android.util.Log
+import android.widget.TextView
+
+
+
 
 class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelectedListener {
 
@@ -21,11 +26,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         val toolbar: Toolbar = findViewById(R.id.toolbar)
         setSupportActionBar(toolbar)
 
-//        val fab: FloatingActionButton = findViewById(R.id.fab)
-//        fab.setOnClickListener { view ->
-//            Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
-//                .setAction("Action", null).show()
-//        }
+
         val drawerLayout: DrawerLayout = findViewById(R.id.drawer_layout)
         val navView: NavigationView = findViewById(R.id.nav_view)
         val toggle = ActionBarDrawerToggle(
@@ -35,6 +36,17 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         toggle.syncState()
 
         navView.setNavigationItemSelectedListener(this)
+
+        val myDbHelper = DataBaseHelper(this)
+        myDbHelper.createDataBase()
+        myDbHelper.openDataBase()
+        Log.d("DatB", myDbHelper.getUserNameFromDB())
+//        val userName = myDbHelper.getUserNameFromDB();
+//        var book1984 = Book("1984", "George Orwell")
+//        myDbHelper.addBook(book1984)
+//        myDbHelper.getAllBooks()
+//
+        setDailyWoman(myDbHelper)
     }
 
     override fun onBackPressed() {
@@ -71,21 +83,34 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
             R.id.nav_gallery -> {
 
             }
-            R.id.nav_slideshow -> {
-
-            }
-            R.id.nav_tools -> {
-
-            }
             R.id.nav_share -> {
-
-            }
-            R.id.nav_send -> {
 
             }
         }
         val drawerLayout: DrawerLayout = findViewById(R.id.drawer_layout)
         drawerLayout.closeDrawer(GravityCompat.START)
         return true
+    }
+
+    fun setDailyWoman(myDbHelper : DataBaseHelper)  {
+        // Will select a woman of the day from the database and set it in the app
+        val currDate = SimpleDateFormat().format(0)
+        Log.d("Date", "Hello World")
+        Log.d("Date", currDate)
+
+
+        val rand = Random(0)
+        // Get the current date and use this to get a random number seed
+
+        // Get the database info
+
+//        Log.d("db", result)
+//
+
+        // Get a value from the database
+        // Set the woman details in the 3 text views and the picture periodically (daily).
+        //  ( https://stackoverflow.com/questions/4459058/alarm-manager-example )
+        val titleTextView: TextView = findViewById(R.id.titleTextView)
+//        titleTextView.text = myDbHelper.getBook(1).author;
     }
 }
